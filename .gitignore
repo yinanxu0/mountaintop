@@ -1,0 +1,11 @@
+**/.bak
+**/__pycache__
+**/.DS_Store
+**/exp*
+**/.ipynb_checkpoints
+**/.vscode
+**/*.log
+
+**/build
+**/dist
+**/*egg-info
