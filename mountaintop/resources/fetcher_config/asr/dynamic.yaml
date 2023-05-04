@@ -1,0 +1,31 @@
+data_fetcher:
+  module: "mountaintop.dataset.asr.loader:AsrDatasetLoader"
+  tokenizer:
+    vocab_path: "data/words.txt"
+    bpe_model: null
+    special_tokens: ["<noise>"]
+    pad_token: "<pad>"
+    bos_token: "<sos/eos>"
+    eos_token: "<sos/eos>"
+    unk_token: "<unk>"
+  filter:
+    src_min_length: 50
+    src_max_length: 5000
+    tgt_min_length: 1
+    tgt_max_length: 200
+  feature:
+    type: "fbank"
+    dim: 80
+    dither: 1.0
+  specaug:
+    num_t_mask: 2
+    num_f_mask: 2
+    max_t: 50
+    max_f: 10
+    # max_w: 80
+  # specsub:
+  #   max_t: 20
+  #   num_t_sub: 3
+  batch:
+    batch_type: "dynamic"
+    capcity: 9600

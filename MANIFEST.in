@@ -1,0 +1,6 @@
+include mountaintop/VERSION
+include requirements.txt
+include README.md
+
+recursive-include mountaintop *.yaml
+recursive-include mountaintop *.json

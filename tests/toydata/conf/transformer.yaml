@@ -1,0 +1,145 @@
+model: &model
+  module: "mountaintop.models.asr.transformer:AsrTransformer"
+  base_config:
+    vocab_size: &vocab_size !line_count [toydata/words.txt]
+    embed_size: &embed_size 80
+    hidden_size: &hidden_size 256
+    dropout_rate: &dropout_rate 0.1
+    positional_dropout_rate: &positional_dropout_rate 0.1
+    attention_dropout_rate: &attention_dropout_rate 0.0
+    ctc_weight: 0.3
+
+  embed: &embedding
+    module: "mountaintop.layers.speech_embed:SpeechEmbed"
+    in_dim: *embed_size
+    out_dim: *hidden_size
+    pos_type: "abs_pos"
+    subsampling_type: "conv2d4" 
+    dropout_rate: *dropout_rate
+    positional_dropout_rate: *positional_dropout_rate 
+
+  encoder: &encoder
+    module: "mountaintop.layers.transformer.encoder:TransformerEncoder"
+    block: "transformer"
+    dim: *hidden_size
+    num_heads: 4
+    num_hidden: 2048
+    num_blocks: 3
+    dropout_rate: *dropout_rate
+    attention_dropout_rate: *attention_dropout_rate
+    norm_type: "prenorm"
+    activation_name: "relu"
+    concat_after: false
+    # chunk_size: 0
+    # use_dynamic_chunk: false
+    ### params for conformer
+    # use_macaron: true
+    # use_cnn: true
+    # cnn_kernels: 15
+    # cnn_norm: "batchnorm" 
+    # # cnn_norm: "layernorm" 
+    # cnn_causal: true
+    # cnn_activation_name: "swish"
+
+  decoder: &decoder
+    module: "mountaintop.layers.transformer.decoder:TransformerDecoder"
+    # module: "mountaintop.layers.transformer.decoder:BiTransformerDecoder"
+    block: "transformer"
+    vocab_size: *vocab_size
+    in_dim: *hidden_size
+    num_heads: 4
+    num_hidden: 2048
+    num_blocks: 3
+    dropout_rate: *dropout_rate
+    positional_dropout_rate: *positional_dropout_rate
+    self_attention_dropout_rate: *attention_dropout_rate
+    src_attention_dropout_rate: *attention_dropout_rate
+    norm_type: "prenorm"
+    concat_after: false
+    use_output_layer: true
+
+  loss:
+    att_loss_weight: 1.0
+    att_loss:
+      module: "mountaintop.layers.loss:LabelSmoothingKlLoss"
+      smoothing: 0.1
+      reduction: "mean"
+
+    ctc_loss_weight: 0.3
+    ctc_loss: 
+      module: "mountaintop.layers.loss:CTC"
+      in_dim: *hidden_size
+      num_classes: *vocab_size
+      dropout_rate: *dropout_rate
+      reduction: "mean"
+
+#     mwer_loss_weight: 0.9
+#     mwer_loss: 
+#       module: "mountaintop.layers.loss:MwerLoss"
+#       reduction: "mean"
+
+data_fetcher:
+  module: "mountaintop.dataset_v2.asr_dataset.asr:AsrDatasetLoader"
+  tokenizer:
+    vocab_path: "data/words.txt"
+    bpe_model: null
+    special_tokens: ["<noise>"]
+    pad_token: "<pad>"
+    bos_token: "<sos/eos>"
+    eos_token: "<sos/eos>"
+    unk_token: "<unk>"
+  filter:
+    src_min_length: 50
+    src_max_length: 5000
+    tgt_min_length: 1
+    tgt_max_length: 200
+  feature:
+    type: "fbank"
+    dim: 80
+    dither: 1.0
+  specaug:
+    num_t_mask: 2
+    num_f_mask: 2
+    max_t: 50
+    max_f: 10
+    # max_w: 80
+  # specsub:
+  #   max_t: 20
+  #   num_t_sub: 3
+  batch:
+    batch_type: "static"
+    capcity: 24
+
+dataset: &dataset 
+  train: &train_file "toydata/small_dataset.jsonl.gz"
+  valid: &valid_file "toydata/small_dataset.jsonl.gz"
+  test: &test_file "toydata/small_dataset.jsonl.gz"
+
+train:
+  optimizer:
+    name: "adam"
+    lr: 0.002
+  warmup:
+    warmup_steps: 25000
+    last_epoch: -1
+
+  num_epochs: 80
+  grad_clip_norm: 5.0
+
+  checkpoint_selector:
+    eval_metric: "loss"
+    higher_better: false
+  log_interval: 100
+  grad_accum_steps: 1
+  update_scheduler_by_epoch: false
+  use_cudnn_benchmark: true
+  use_cuda_nonblocking: false
+  use_sync_bn: true
+  use_horovod: false
+  use_amp: false
+  use_prefetcher: false
+  log_gradient: false
+  keep_old_model: true
+
+  model_average: true
+  model_average_interval: 100

@@ -1,0 +1,64 @@
+model: &model
+  module: "mountaintop.models.asr.transformer:AsrTransformer"
+  base_config:
+    vocab_size: &vocab_size 10000
+    embed_size: &embed_size 80
+    hidden_size: &hidden_size 256
+    dropout_rate: &dropout_rate 0.1
+    positional_dropout_rate: &positional_dropout_rate 0.1
+    attention_dropout_rate: 0.0
+
+  embed: &embedding
+    module: "mountaintop.layers.speech_embed:SpeechEmbed"
+    in_dim: *embed_size
+    out_dim: *hidden_size
+    pos_type: "abs_pos"
+    subsampling_type: "conv2d4" 
+    dropout_rate: *dropout_rate
+    positional_dropout_rate: *positional_dropout_rate 
+
+  encoder: &encoder
+    module: "mountaintop.layers.transformer.encoder:TransformerEncoder"
+    block: "transformer"
+    dim: *hidden_size
+    num_heads: 4
+    num_hidden: 2048
+    num_blocks: 12
+    dropout_rate: *dropout_rate
+    attention_dropout_rate: 0.0
+    norm_type: "prenorm"
+    activation_name: "relu"
+    concat_after: false
+    # chunk_size: 0
+    # use_dynamic_chunk: false
+
+  decoder: &decoder
+    module: "mountaintop.layers.transformer.decoder:TransformerDecoder"
+    block: "transformer"
+    vocab_size: *vocab_size
+    in_dim: *hidden_size
+    num_heads: 4
+    num_hidden: 2048
+    num_blocks: 6
+    dropout_rate: *dropout_rate
+    positional_dropout_rate: *positional_dropout_rate
+    self_attention_dropout_rate: 0.0
+    src_attention_dropout_rate: 0.0
+    norm_type: "prenorm"
+    concat_after: false
+    use_output_layer: true
+
+  loss:
+    att_loss_weight: 1.0
+    att_loss:
+      module: "mountaintop.layers.loss:LabelSmoothingKlLoss"
+      smoothing: 0.1
+      reduction: "mean"
+
+    ctc_loss_weight: 0.3
+    ctc_loss: 
+      module: "mountaintop.layers.loss:CTC"
+      in_dim: *hidden_size
+      num_classes: *vocab_size
+      dropout_rate: *dropout_rate
+      reduction: "mean"
