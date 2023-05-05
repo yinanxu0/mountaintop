@@ -33,6 +33,10 @@ def get_logger(
 ) -> logging.Logger:
     logger = logging.getLogger("mountaintop")
     logger.setLevel(logging.DEBUG)
+    # remove existed handler
+    if len(logger.handlers) > 0:
+        for handler in logger.handlers:
+            logger.removeHandler(handler)
     logger.addHandler(
         stream_handler(
             level=logging.INFO,
@@ -237,6 +241,7 @@ class LoggerX(object):
     def __init__(self, rank=0):
         self._initialized = False
         self.detail_level = int(os.environ.get("DETAIL_LEVEL", 1))
+        self.logger = get_logger(filepath=None, detail_level=self.detail_level)
 
     def initialize(
         self,
@@ -353,23 +358,12 @@ class LoggerX(object):
         if self._initialized and self.is_master:
             self.metrics_fp.close()
 
-    def __check_initialized(self):
-        if not self._initialized:
-            print(
-                colored(
-                    "using loggerx before `initialize` is not allowed",
-                    "red"
-                )
-            )
-            return False
-        return True
-
-    def __check_master(self):
+    def _check_master(self):
         if not hasattr(self, 'is_master') or not self.is_master:
             return False
         return True
 
-    def __check_msg(self, msg: Any=""):
+    def _check_msg(self, msg: Any=""):
         if msg is None or len(msg) == 0:
             self.logger.warning(
                 "empty message for logger is not recommended, skip",
@@ -380,42 +374,27 @@ class LoggerX(object):
 
     #### logger functions
     def debug(self, msg: Any, stacklevel=2, *args, **kwargs):
-        if not self.__check_master() or not self.__check_msg(msg):
-            return
-        if not self.__check_initialized():
-            print(f"{colored('loggerx not initialized', 'red')} => {msg}")
+        if not self._check_master() or not self._check_msg(msg):
             return
         self.logger.debug(msg, stacklevel=stacklevel, *args, **kwargs)
 
     def info(self, msg: Any, stacklevel=2, *args, **kwargs):
-        if not self.__check_master() or not self.__check_msg(msg):
-            return
-        if not self.__check_initialized():
-            print(f"{colored('loggerx not initialized', 'red')} => {msg}")
+        if not self._check_master() or not self._check_msg(msg):
             return
         self.logger.info(msg, stacklevel=stacklevel, *args, **kwargs)
     
     def warning(self, msg: Any, stacklevel=2, *args, **kwargs):
-        if not self.__check_master() or not self.__check_msg(msg):
-            return
-        if not self.__check_initialized():
-            print(f"{colored('loggerx not initialized', 'red')} => {msg}")
+        if not self._check_master() or not self._check_msg(msg):
             return
         self.logger.warning(msg, stacklevel=stacklevel, *args, **kwargs)
     
     def error(self, msg: Any, stacklevel=2, *args, **kwargs):
-        if not self.__check_master() or not self.__check_msg(msg):
-            return
-        if not self.__check_initialized():
-            print(f"{colored('loggerx not initialized', 'red')} => {msg}")
+        if not self._check_master() or not self._check_msg(msg):
             return
         self.logger.error(msg, stacklevel=stacklevel, *args, **kwargs)
     
     def critical(self, msg: Any, stacklevel=2, *args, **kwargs):
-        if not self.__check_master() or not self.__check_msg(msg):
-            return
-        if not self.__check_initialized():
-            print(f"{colored('loggerx not initialized', 'red')} => {msg}")
+        if not self._check_master() or not self._check_msg(msg):
             return
         self.logger.critical(msg, stacklevel=stacklevel, *args, **kwargs)
     
@@ -423,7 +402,7 @@ class LoggerX(object):
         '''
         Write an image to the tensorboard file
         '''
-        if not self.__check_master() or not self.__check_initialized():
+        if not self._check_master():
             return
         self.tensorboard.add_image(path, img, step)
 
@@ -431,7 +410,7 @@ class LoggerX(object):
         '''
         Write a scalar to the tensorboard file
         '''
-        if not self.__check_master() or not self.__check_initialized():
+        if not self._check_master():
             return
         self.tensorboard.add_scalar(name, val, idx)
 
@@ -468,7 +447,7 @@ class LoggerX(object):
             metrics: dictionary of metrics to record
             global_step: (optional) epoch or iteration number
         """
-        if not self.__check_master():
+        if not self._check_master():
             return
         canonical_phase = self._canonical_phase(phase=phase)
 
@@ -530,7 +509,7 @@ class LoggerX(object):
                     false, you'll get a checkpoint saved every time this
                     function is called.
         """
-        if not self.__check_master():
+        if not self._check_master():
             return
         
         if "__metric" not in save_dict:

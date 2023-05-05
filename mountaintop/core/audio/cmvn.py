@@ -60,12 +60,13 @@ def load_kaldi_cmvn(kaldi_cmvn_file):
         fid.seek(0)
         arr = fid.read().split()
         assert (arr[0] == '[')
-        assert (arr[-2:] == '0]')
+        assert (arr[-2] == '0')
+        assert (arr[-1] == ']')
         feat_dim = int((len(arr) - 4) / 2)
         
-        means = map(float, arr[1 : feat_dim+1])
+        means.extend(map(float, arr[1 : feat_dim+1]))
         count = float(arr[feat_dim+1])
-        variance = map(float, arr[feat_dim+2 : 2*feat_dim+2])
+        variance.extend(map(float, arr[feat_dim+2 : 2*feat_dim+2]))
         
     return update(means, variance, count)
 
