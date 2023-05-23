@@ -65,12 +65,8 @@ class VadDatasetLoader:
                              'let num_workers > 0 to enable multiprocessing.')
         assert prefetch_factor > 0
         
-        dataset = SupervisionArray.from_file(data_path)
-
-        if mode == "train":
-            dataset = BaseDataset(dataset, shuffle=True, partition=True)
-        else:
-            dataset = BaseDataset(dataset, shuffle=False, partition=False)
+        dataset = BaseDataset(data_path, shuffle=(mode=="train"), partition=True)
+        if mode != "train":
             train_fetcher = []
             for key in fetcher_configs.keys():
                 if is_train_fetcher(key):
